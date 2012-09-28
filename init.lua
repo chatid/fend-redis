@@ -6,8 +6,6 @@ local newfifo   = require "fend-redis.fifo"
 
 -- Set up a global socket callback infrastructure
 local ffi = require "ffi"
-require "fend.common"
-include "string"
 
 local function close_m ( m , err )
 	-- Close all pipelined requests
