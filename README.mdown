@@ -1,0 +1,52 @@
+Redis Client for fend (https://github.com/chatid/fend)
+
+Dependencies
+------------
+  - [luajit](http://luajit.org/) with [ffi](http://luajit.org/ext_ffi.html) or [ffi](https://github.com/jmckaskill/luaffi)
+  - [fend](https://github.com/chatid/fend)
+  - [hiredis](https://github.com/antirez/hiredis)
+
+Usage
+-----
+All functions will throw a lua error if they encounter a problem.
+Modules can be required individually, or all will be available under `redis = require "fend-redis"`
+
+###fend-redis
+
+  - `redis.add_sock ( dispatch , sock , handler )`  
+  	Adds a listener to the given `dispatch` for the connected redis socket `sock`  
+  	`handler` will be called with `redisReply` objects as they arrive.  
+  	Returns a function that takes the same arguments as `fend-redis.construct`
+
+
+###fend-redis.reply
+Adds a metatype to `redisReply`
+
+  - `value , str = myreply:toLua()`  
+    Converts the reply to lua object `value`.
+    For success or error replys, returns a descriptive string.
+
+
+###fend-redis.reader
+A thin wrapper around the hiredis `redisReader` structure  
+
+  - `myreader = reader.Create()`  
+    Returns a `redisReader` object
+
+  - `myreader:Feed ( string )`  
+    `myreader:Feed ( buff , length )`  
+    Copies data to the internal `myreader` buffer
+
+  - `myreader:GetReply ( )`  
+    Parses data in the internal buffer, returning the next available `redisReply`  
+    Returns `nil` if no more complete replies found
+
+  - `myreader:GetReplies ( )`  
+  	Suitable for use as an iterator:   
+```for reply in myreader:GetReplies ( ) do
+	print ( reply )
+end```
+
+
+###fend-redis.construct
+This module returns a function that can construct a redis request.
