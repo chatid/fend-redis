@@ -56,3 +56,6 @@ end```
 This module returns a function that can construct a redis request.
 
 eg, `construct ( "KEYS" , "*" )`
+
+###fend-redis.fifo
+Is the fifo library original from [lomp](https://github.com/daurnimator/lomp2/blob/master/fifo.lua)

@@ -2,9 +2,9 @@ local reader    = require "fend-redis.reader" ;
 local reply     = require "fend-redis.reply" ;
 local construct = require "fend-redis.construct" ;
 
+local newfifo   = require "fend-redis.fifo"
 
 -- Set up a global socket callback infrastructure
-local newfifo = require "fifo"
 local ffi = require "ffi"
 require "fend.common"
 include "string"
