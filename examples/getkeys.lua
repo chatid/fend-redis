@@ -12,6 +12,7 @@ sock:connect ( addrinfo , dispatch , function ( sock , err )
 		assert ( sock , err )
 		local red = redis.add_sock ( dispatch , sock )
 		red:query ( function ( reply , err )
+				reply = assert ( reply , err ):toLua ( )
 				for i , v in ipairs ( reply ) do
 					print ( v )
 				end

@@ -13,15 +13,16 @@ Modules can be required individually, or all will be available under `redis = re
 
 ###fend-redis
 
-  - `redis_cmd = redis.add_sock ( dispatch , sock )`
+  - `red = redis.add_sock ( dispatch , sock )`
   	Adds a listener to the given `dispatch` for the connected redis socket `sock`
 
-  - `redis_cmd ( callback  , ... )`  
+  - `red:query ( callback  , ... )`  
     Send a command to redis.  
     Vararg is sent to `fend-redis.construct`  
-    When it is done: `callback ( val , text )` is called with the lua value and text (in the case of success or redis error)  
-    On error: `callback ( nil , error_string )`  
-    Note that `nil` is a valid redis return value. If you need to disambiguate between a connection error and a redis error, you must check for existence of the error_string.
+    When it is done: `callback ( redisReply , err )` is called with the reply or `callback ( nil , error_string )` in case of failure.  
+    
+  - `red:cmd ( ... )`  
+    Send a command to redis; throw a lua error on failure.  
 
 ###fend-redis.reply
 Adds a metatype to `redisReply`

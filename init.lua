@@ -40,8 +40,7 @@ function redis_cbs.read ( sock , cbs )
 		m.reader:Feed ( buff , c )
 		for reply in m.reader:GetReplies ( ) do
 			local func = m.pipeline:pop ( )
-			local reply , text = reply:toLua ( )
-			if func ( reply , text ) == false then
+			if func ( reply ) == false then
 				return cbs.close ( sock , cbs )
 			end
 		end
