@@ -28,12 +28,12 @@ local BUFF_LEN = 16384
 local buff = ffi.new ( "char[?]" , BUFF_LEN )
 
 local redis_cbs = { }
-function redis_cbs.read ( file , cbs )
-	local m = file_map [ file ]
+function redis_cbs.read ( sock , cbs )
+	local m = file_map [ sock ]
 	while true do
-		local c , err = m.sock:recv ( buff , BUFF_LEN )
+		local c , err = sock:recv ( buff , BUFF_LEN )
 		if not c then
-			return cbs.close ( file , cbs )
+			return cbs.close ( sock , cbs )
 		elseif c == 0 then
 			break
 		end
@@ -42,78 +42,104 @@ function redis_cbs.read ( file , cbs )
 			local func = m.pipeline:pop ( )
 			local reply , text = reply:toLua ( )
 			if func ( reply , text ) == false then
-				return cbs.close ( file , cbs )
+				return cbs.close ( sock , cbs )
 			end
 		end
 	end
 end
-function redis_cbs.write ( file , cbs )
-	local m = file_map [ file ]
+function redis_cbs.write ( sock , cbs )
+	local m = file_map [ sock ]
 	while true do
 		local req = m.sendqueue:pop ( )
 		if not req then break end
 
-		local ok , err = m.sock:send ( req.data )
+		local ok , err = sock:send ( req.data )
 		if not ok then
 			req.callback ( nil , err )
-			return cbs.close ( file , cbs )
+			return cbs.close ( sock , cbs )
 		else
 			m.pipeline:push ( req.callback )
 		end
 	end
 	-- Nothing more to write
 	cbs.write = nil
-	m.dispatch:add_fd ( file , m.cbs )
+	m.dispatch:add_fd ( sock , m.cbs )
 end
-function redis_cbs.close ( file , cbs )
-	local m = file_map [ file ]
+function redis_cbs.close ( sock , cbs )
+	local m = file_map [ sock ]
 	close_m ( m , "closed" )
-	m.dispatch:del_fd ( file , cbs )
-	m.sock:close ( )
-	file_map [ file ] = nil
+	m.dispatch:del_fd ( sock , cbs )
+	sock:close ( )
+	file_map [ sock ] = nil
 end
-function redis_cbs.error ( file , cbs )
-	local m = file_map [ file ]
-	local err = m.sock:get_error ( )
+function redis_cbs.error ( sock , cbs )
+	local m = file_map [ sock ]
+	local err = sock:get_error ( )
 	close_m ( m , err )
-	m.dispatch:del_fd ( file , cbs )
-	m.sock:close ( )
-	file_map [ file ] = nil
+	m.dispatch:del_fd ( sock , cbs )
+	sock:close ( )
+	file_map [ sock ] = nil
 end
 
-local function add_sock ( dispatch , sock )
-	local file = sock:getfile ( )
+local function cmd_cb ( ok , res )
+	if not ok then
+		error ( "Redis request failed: " .. res )
+	end
+end
+
+local redis_methods = {
+	query = function ( self , cb , ... )
+		local req = {
+			data     = construct ( ... ) ;
+			callback = cb ;
+		}
+		if not self.cbs.write and self.dispatch then
+			self.cbs.write = redis_cbs.write
+			self.dispatch:add_fd ( self.sock , self.cbs )
+		end
+		self.sendqueue:push ( req )
+		return self
+	end ;
+	cmd = function ( self , ... )
+		return self:add_request ( cmd_cb , ... )
+	end ;
+	set_sock = function ( self , dispatch , sock )
+		assert ( self.sock == nil , "Redis object already has socket associated" )
+		self.sock     = sock
+		self.dispatch = dispatch
+		file_map [ sock ] = self
+		dispatch:add_fd ( sock , self.cbs )
+		return self
+	end ;
+}
+local redis_mt = {
+	__index = redis_methods ;
+}
+
+local function new ( )
 	local sendqueue = newfifo ( )
 	sendqueue:setempty ( function ( ) return nil end )
 	local pipeline = newfifo ( )
 	pipeline:setempty ( function ( ) return nil end )
-	local m = {
-		dispatch  = dispatch ;
-		sock      = sock ;
-		reader    = reader.Create ( ) ;
-		sendqueue = sendqueue ;
-		pipeline  = pipeline ;
-		cbs       = {
-			read  = redis_cbs.read ;
-			close = redis_cbs.close ;
-			error = redis_cbs.error ;
-			edge  = true ;
-		}
-	}
-	file_map [ file ] = m
-	dispatch:add_fd ( file , m.cbs )
+	local m = setmetatable ( {
+			dispatch  = nil ;
+			sock      = nil ;
+			reader    = reader.Create ( ) ;
+			sendqueue = sendqueue ;
+			pipeline  = pipeline ;
+			cbs       = {
+				read  = redis_cbs.read ;
+				close = redis_cbs.close ;
+				error = redis_cbs.error ;
+				edge  = true ;
+			} ;
+		} , redis_mt )
+	return m
+end
 
-	return function ( cb , ... )
-			local req = {
-				data     = construct ( ... ) ;
-				callback = cb ;
-			}
-			if not m.cbs.write then
-				m.cbs.write = redis_cbs.write
-				m.dispatch:add_fd ( m.sock:getfile ( ) , m.cbs )
-			end
-			m.sendqueue:push ( req )
-		end
+local function add_sock ( dispatch , sock )
+	local m = new ( )
+	return m:set_sock ( dispatch , sock )
 end
 
 return {
@@ -121,5 +147,6 @@ return {
 	reply     = reply ;
 	construct = construct ;
 
+	new       = new ;
 	add_sock  = add_sock ;
 }
