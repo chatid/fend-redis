@@ -101,7 +101,7 @@ local redis_methods = {
 		return self
 	end ;
 	cmd = function ( self , ... )
-		return self:add_request ( cmd_cb , ... )
+		return self:query ( cmd_cb , ... )
 	end ;
 	set_sock = function ( self , dispatch , sock )
 		assert ( self.sock == nil , "Redis object already has socket associated" )
