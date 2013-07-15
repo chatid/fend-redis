@@ -7,19 +7,27 @@ local newfifo   = require "fend-redis.fifo"
 -- Set up a global socket callback infrastructure
 local ffi = require "ffi"
 
-local function close_m ( m , err )
+local function clear_pipeline ( m , err )
 	-- Close all pipelined requests
 	while true do
 		local func = m.pipeline:pop ( )
 		if not func then break end
 		func ( nil , err )
 	end
+end
+
+local function clear_queued ( m , err )
 	-- Close all queued requests
 	while true do
 		local req = m.sendqueue:pop ( )
 		if not req then break end
 		req.callback ( nil , err )
 	end
+end
+
+local function close_m ( m , err )
+	clear_pipeline ( m )
+	clear_queued ( m )
 end
 
 local file_map = { }
