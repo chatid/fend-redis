@@ -75,7 +75,7 @@ end
 function redis_cbs.close ( sock , cbs )
 	local m = file_map [ sock ]
 	close_m ( m , "closed" )
-	m.dispatch:del_fd ( sock , cbs )
+	m.dispatch:del_fd ( sock )
 	sock:close ( )
 	file_map [ sock ] = nil
 end
@@ -83,7 +83,7 @@ function redis_cbs.error ( sock , cbs )
 	local m = file_map [ sock ]
 	local err = sock:get_error ( )
 	close_m ( m , err )
-	m.dispatch:del_fd ( sock , cbs )
+	m.dispatch:del_fd ( sock )
 	sock:close ( )
 	file_map [ sock ] = nil
 end
